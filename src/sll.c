@@ -37,7 +37,7 @@ sll_t* add_index(sll_t* node, sll_t* slist, uint32_t index) {
     node->next = listIndex->next;
     listIndex->next = node;
   }
-    return slist;
+  return slist;
 }
 
 sll_t* remove_head(sll_t* slist) {

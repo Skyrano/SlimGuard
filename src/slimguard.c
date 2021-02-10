@@ -21,6 +21,7 @@ typedef struct cls_t{
   void* current;            // bumper pointer
   void* guardpage;          // last guard page
   sll_t* head;              // head of the free list
+  uint32_t freeSize;            // size of the free list
   uint64_t bitmap[ELE>>6];  // bitmap
   pthread_mutex_t lock;
   uint32_t size;            // size of current sizeclass
@@ -116,6 +117,7 @@ void init_bucket(uint8_t index) {
             errx(-1, "Cannot allocate class %d data area\n", index);
 
         Class[index].head = NULL; // head of the sll contains free pointers
+        Class[index].freeSize = 0; // head of the sll contains free pointers
         Class[index].start = addr; // start address of the current bucket
         Class[index].current = Class[index].start; // bumper pointer
         Class[index].stop = (void *)((uint64_t)addr + BUCKET_SIZE); // upper
@@ -399,6 +401,7 @@ void* xxmalloc(size_t sz) {
     if (Class[index].head && Class[index].head->next) {
         ret = Class[index].head;
         Class[index].head = remove_head(Class[index].head);
+        Class[index].freeSize--;
     } else {
         ret = get_random_obj(index);
     }
@@ -422,6 +425,7 @@ void* xxmalloc(size_t sz) {
 /* SlimGuard free */
 void xxfree(void *ptr) {
     uint8_t index = 255;
+    uint16_t listIndex;
 
     if (ptr == NULL)
         return;
@@ -453,7 +457,15 @@ void xxfree(void *ptr) {
 #ifdef RELEASE_MEM
     decrement_pc(ptr, index);
 #endif
-    Class[index].head = add_head((sll_t *)ptr, Class[index].head);
+
+    if (Class[index].freeSize > 0) {
+        listIndex = pcg32_random_r() % Class[index].freeSize;
+    }
+    else {
+        listIndex = 0;
+    }
+    Class[index].head = add_index((sll_t *)ptr, Class[index].head, listIndex);
+    Class[index].freeSize++;
     mark_free(ptr, index);
     pthread_mutex_unlock(&(Class[index].lock));
     /* Lock end */
