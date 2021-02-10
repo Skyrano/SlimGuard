@@ -8,6 +8,7 @@
 #define SLL_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include "debug.h"
@@ -17,6 +18,7 @@ typedef struct sll_t {
 } sll_t;
 
 sll_t* add_head(sll_t* node, sll_t* slist);
+sll_t* add_index(sll_t* node, sll_t* slist, uint32_t index);
 sll_t* remove_head(sll_t* slist);
 
 #endif /* SLL_H */
