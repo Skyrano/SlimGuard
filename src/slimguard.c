@@ -21,7 +21,7 @@ typedef struct cls_t{
   void* current;            // bumper pointer
   void* guardpage;          // last guard page
   sll_t* head;              // head of the free list
-  uint32_t freeSize;            // size of the free list
+  uint32_t freeSize;        // size of the free list
   uint64_t bitmap[ELE>>6];  // bitmap
   pthread_mutex_t lock;
   uint32_t size;            // size of current sizeclass
@@ -398,7 +398,7 @@ void* xxmalloc(size_t sz) {
     if (Class[index].start == NULL)
         init_bucket(index);
 
-    if (Class[index].head && Class[index].head->next) {
+    if (Class[index].freeSize >= (1 << ETP)) {
         ret = Class[index].head;
         Class[index].head = remove_head(Class[index].head);
         Class[index].freeSize--;
