@@ -6,8 +6,8 @@ STANDALONE=slimguard-standalone
 CFLAGS = -Wall -pedantic -O3 -Wno-deprecated-declarations -I./include
 
 CFLAGS += -DGUARDPAGE
-CFLAGS += -DRELEASE_MEM
-# CFLAGS += -DDESTROY_ON_FREE
+# CFLAGS += -DRELEASE_MEM
+CFLAGS += -DDESTROY_ON_FREE
 CFLAGS += -DUSE_CANARY
 # CFLAGS += -DDEBUG
 
