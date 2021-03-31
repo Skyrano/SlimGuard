@@ -7,7 +7,7 @@ set(CMAKE_C_COMPILER g++)
 
 set(debug off)
 set(canary on)
-set(release-memory on)
+set(release-memory off)
 set(guardpage on)
 set(destroy-on-free on)
 
