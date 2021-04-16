@@ -14,6 +14,11 @@
 #include <err.h>
 #include <pthread.h>
 
+#ifdef STATS
+#include <stdlib.h>
+#include <stdio.h>
+#endif
+
 typedef struct cls_t{
   void* bucket[BKT];        // array for randomization and OP entropy
   void* start;              // start address of a size class
@@ -25,6 +30,10 @@ typedef struct cls_t{
   uint64_t bitmap[ELE>>6];  // bitmap
   pthread_mutex_t lock;
   uint32_t size;            // size of current sizeclass
+#ifdef STATS
+  uint64_t bytes_size;      // dynamic bytes size of current sizeclass
+  uint64_t max_bytes_size;  // max bytes size of current sizeclass
+#endif
 } cls_t;
 
 #ifdef RELEASE_MEM
@@ -41,6 +50,33 @@ enum pool_state{null, init} STATE;
  * See license for pcg32 in docs/pcg32-license.txt */
 typedef struct { uint64_t state;  uint64_t inc; } pcg32_random_t;
 __thread pcg32_random_t rng = {0x0, 0x0};
+
+#ifdef STATS
+int stats = 1;
+int number_malloc = 0;
+int bucket_created = 0;
+uint64_t current_size = 0;
+uint64_t max_size = 0;
+
+void show_stats(void) {
+    printf("\n----------Stats----------\n");
+    printf("Nb malloc : %d\n", number_malloc);
+    printf("Nb bucket created : %d\n", bucket_created);
+    printf("Max size : %lu bytes\n", max_size);
+
+    uint64_t max_class_size = 0;
+    uint64_t index_max_class_size = 0;
+    for (uint64_t i = 0; i < INDEX; i++)
+    {
+        if (Class[i].start != NULL && Class[i].max_bytes_size > max_class_size) {
+            index_max_class_size = i;
+            max_class_size = Class[i].max_bytes_size;
+        }
+    }
+    printf("Max size one class : %lu bytes\n", max_class_size);
+    printf("For the class : %lu (%u bytes)\n", index_max_class_size, cls2sz(index_max_class_size));
+}
+#endif
 
 uint32_t pcg32_random_r(void) {
     uint64_t oldstate = rng.state;
@@ -104,6 +140,14 @@ void init_bibop() {
 void init_bucket(uint8_t index) {
     if (Class[index].start == NULL) {
 
+    #ifdef STATS
+        if (stats == 1) {
+            atexit(show_stats);
+            stats = 0;
+        }
+        bucket_created++;
+    #endif
+
         /* If the size class manage a power of two, make sure that each slot is
          * aligned to the power of two in question. This is useful to manage
          * alignment requirements, see comments in xxmemalign */
@@ -123,6 +167,10 @@ void init_bucket(uint8_t index) {
         Class[index].stop = (void *)((uint64_t)addr + BUCKET_SIZE); // upper
                                                                     // bound
         Class[index].size = cls2sz(index); // the size for current bucket
+    #ifdef STATS
+        Class[index].bytes_size = 0;
+        Class[index].max_bytes_size = 0;
+    #endif
 
         for (int i = 0; i < BKT; i++) {
             Class[index].bucket[i] = Class[index].current;
@@ -368,6 +416,9 @@ void* xxmalloc(size_t sz) {
     sz++;
 #endif
 
+#ifdef STATS
+    number_malloc++;
+#endif
     uint64_t need = 0;
     void *ret = NULL;
     uint8_t index = 255;
@@ -404,6 +455,14 @@ void* xxmalloc(size_t sz) {
         Class[index].freeSize--;
     } else {
         ret = get_random_obj(index);
+    #ifdef STATS
+        Class[index].bytes_size += Class[index].size;
+        if (Class[index].bytes_size > Class[index].max_bytes_size)
+            Class[index].max_bytes_size = Class[index].bytes_size;
+        current_size += Class[index].size;
+        if (current_size > max_size)
+            max_size = current_size;
+    #endif
     }
 
 #ifdef RELEASE_MEM
